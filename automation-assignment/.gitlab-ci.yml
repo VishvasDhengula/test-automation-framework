@@ -1,0 +1,67 @@
+image: gradle
+
+services:
+  - name: selenium/standalone-chrome
+    alias: selenium
+    entrypoint: ["/opt/bin/entry_point.sh"]
+    command: [ "-p","4444:4444" ]
+
+variables:
+  FF_NETWORK_PER_BUILD: 1
+  RUN_TESTS:
+    value: "api"
+    options:
+      - "api"
+      - "web"
+      - "web-api"
+    description: "Test to be run, either web or api or both i.e. web-api"
+
+  BROWSER:
+    value: "chrome"
+    options:
+      - "chrome"
+      - "firebox"
+    description: "Test to be run on browser, default is Chrome. In case of API this value will be skipped"
+
+  ENV:
+    value: "dev"
+    options:
+      - "dev"
+      - "qa"
+      - "uat"
+    description: "Test to be run on env, default is Dev"
+
+before_script:
+  - GRADLE_USER_HOME="$(pwd)/.gradle"
+  - export GRADLE_USER_HOME
+
+build:
+  stage: build
+  script: gradle --build-cache assemble
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: push
+    paths:
+      - build
+      - .gradle
+
+test:
+  stage: test
+  script:
+    - echo $BROWSER
+    - echo $ENV
+    - echo $RUN_TESTS
+    - echo $CI_JOB_ID
+    - gradle test -P$RUN_TESTS  -Dbrowser=$BROWSER -Denv=$ENV -DCI_JOB_ID=$CI_JOB_ID
+
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - .gradle
+  when: manual
+  artifacts:
+    when: always
+    paths:
+      - build/reports
